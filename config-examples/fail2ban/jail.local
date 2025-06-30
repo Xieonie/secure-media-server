@@ -1,0 +1,234 @@
+# Fail2Ban Configuration for Secure Media Server
+# This file defines jails (protection rules) for various services
+
+[DEFAULT]
+# Global settings
+bantime = 3600
+findtime = 600
+maxretry = 3
+backend = auto
+usedns = warn
+logencoding = auto
+enabled = false
+mode = normal
+filter = %(__name__)s[mode=%(mode)s]
+
+# Email notifications (configure your SMTP settings)
+destemail = admin@yourdomain.com
+sender = fail2ban@yourdomain.com
+mta = sendmail
+protocol = tcp
+chain = <known/chain>
+
+# Action shortcuts
+action_ = %(banaction)s[name=%(__name__)s, bantime="%(bantime)s", port="%(port)s", protocol="%(protocol)s", chain="%(chain)s"]
+action_mw = %(banaction)s[name=%(__name__)s, bantime="%(bantime)s", port="%(port)s", protocol="%(protocol)s", chain="%(chain)s"]
+           %(mta)s-whois[name=%(__name__)s, sender="%(sender)s", dest="%(destemail)s", protocol="%(protocol)s", chain="%(chain)s"]
+action_mwl = %(banaction)s[name=%(__name__)s, bantime="%(bantime)s", port="%(port)s", protocol="%(protocol)s", chain="%(chain)s"]
+            %(mta)s-whois-lines[name=%(__name__)s, sender="%(sender)s", dest="%(destemail)s", logpath="%(logpath)s", chain="%(chain)s"]
+
+# Default action
+action = %(action_)s
+
+# Ignore local networks
+ignoreip = 127.0.0.1/8 ::1 192.168.0.0/16 172.16.0.0/12 10.0.0.0/8
+
+# SSH protection
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 3600
+
+# Nginx/Reverse Proxy protection
+[nginx-http-auth]
+enabled = true
+filter = nginx-http-auth
+port = http,https
+logpath = /var/log/nginx/error.log
+maxretry = 3
+bantime = 3600
+
+[nginx-noscript]
+enabled = true
+port = http,https
+filter = nginx-noscript
+logpath = /var/log/nginx/access.log
+maxretry = 6
+bantime = 86400
+
+[nginx-badbots]
+enabled = true
+port = http,https
+filter = nginx-badbots
+logpath = /var/log/nginx/access.log
+maxretry = 2
+bantime = 86400
+
+[nginx-noproxy]
+enabled = true
+port = http,https
+filter = nginx-noproxy
+logpath = /var/log/nginx/access.log
+maxretry = 2
+bantime = 86400
+
+# Docker/Container protection
+[docker-auth]
+enabled = true
+filter = docker-auth
+port = 2376
+logpath = /var/log/docker.log
+maxretry = 3
+bantime = 3600
+
+# Authelia protection
+[authelia]
+enabled = true
+filter = authelia
+port = http,https
+logpath = /var/log/authelia/authelia.log
+maxretry = 3
+bantime = 3600
+findtime = 120
+
+# Traefik protection
+[traefik-auth]
+enabled = true
+filter = traefik-auth
+port = http,https
+logpath = /var/log/traefik/access.log
+maxretry = 3
+bantime = 3600
+
+# Media server specific protections
+[jellyfin]
+enabled = true
+filter = jellyfin
+port = http,https
+logpath = /var/log/jellyfin/jellyfin.log
+maxretry = 3
+bantime = 3600
+
+[plex]
+enabled = true
+filter = plex
+port = 32400
+logpath = /var/log/plex/plex.log
+maxretry = 3
+bantime = 3600
+
+# *arr applications protection
+[sonarr]
+enabled = true
+filter = sonarr
+port = http,https
+logpath = /var/log/sonarr/sonarr.log
+maxretry = 3
+bantime = 3600
+
+[radarr]
+enabled = true
+filter = radarr
+port = http,https
+logpath = /var/log/radarr/radarr.log
+maxretry = 3
+bantime = 3600
+
+[prowlarr]
+enabled = true
+filter = prowlarr
+port = http,https
+logpath = /var/log/prowlarr/prowlarr.log
+maxretry = 3
+bantime = 3600
+
+# qBittorrent protection
+[qbittorrent]
+enabled = true
+filter = qbittorrent
+port = http,https
+logpath = /var/log/qbittorrent/qbittorrent.log
+maxretry = 3
+bantime = 3600
+
+# General web application protection
+[apache-auth]
+enabled = false
+port = http,https
+filter = apache-auth
+logpath = /var/log/apache*/*error.log
+maxretry = 6
+
+[apache-badbots]
+enabled = false
+port = http,https
+filter = apache-badbots
+logpath = /var/log/apache*/*access.log
+bantime = 86400
+maxretry = 1
+
+[apache-noscript]
+enabled = false
+port = http,https
+filter = apache-noscript
+logpath = /var/log/apache*/*access.log
+maxretry = 6
+
+[apache-overflows]
+enabled = false
+port = http,https
+filter = apache-overflows
+logpath = /var/log/apache*/*error.log
+maxretry = 2
+
+# DDoS protection
+[http-get-dos]
+enabled = true
+port = http,https
+filter = http-get-dos
+logpath = /var/log/nginx/access.log
+maxretry = 300
+findtime = 300
+bantime = 600
+action = iptables[name=HTTP, port=http, protocol=tcp]
+
+# Recidive jail (repeat offenders)
+[recidive]
+enabled = true
+filter = recidive
+logpath = /var/log/fail2ban.log
+action = iptables-allports[name=recidive]
+bantime = 604800  ; 1 week
+findtime = 86400   ; 1 day
+maxretry = 5
+
+# Custom application protection
+[custom-auth]
+enabled = false
+filter = custom-auth
+port = http,https
+logpath = /var/log/custom/auth.log
+maxretry = 3
+bantime = 3600
+
+# Monitoring and alerting
+[monitoring]
+enabled = false
+filter = monitoring
+port = all
+logpath = /var/log/monitoring.log
+maxretry = 1
+bantime = 86400
+
+# Notes:
+# 1. Adjust log paths according to your actual log locations
+# 2. Configure email settings for notifications
+# 3. Test filters before enabling in production
+# 4. Monitor fail2ban logs: tail -f /var/log/fail2ban.log
+# 5. Unban IPs manually: fail2ban-client set <jail> unbanip <ip>
+# 6. Check jail status: fail2ban-client status <jail>
+# 7. Whitelist trusted IPs in ignoreip setting
+# 8. Adjust ban times based on your security requirements

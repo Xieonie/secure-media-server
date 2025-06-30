@@ -1,0 +1,93 @@
+# Authelia Users Database Configuration
+# This file defines users, groups, and their access permissions
+# 
+# IMPORTANT: This is an example file. In production:
+# 1. Use strong, unique passwords (preferably generated)
+# 2. Hash passwords using Authelia's hash-password command
+# 3. Secure this file with appropriate permissions (600)
+# 4. Consider using LDAP or other external authentication providers
+
+# Generate password hashes using:
+# docker run --rm authelia/authelia:latest authelia hash-password 'your-password'
+
+users:
+  # Admin user with full access
+  admin:
+    displayname: "Administrator"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnfgDsc2WD8F2q$o/vzA4myCqZZ36bUGsDY//8mKUYNZZaR0t4MFFSs+iM"  # changeme123
+    email: admin@example.com
+    groups:
+      - admins
+      - users
+
+  # Regular user with limited access
+  user1:
+    displayname: "John Doe"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnfgDsc2WD8F2q$o/vzA4myCqZZ36bUGsDY//8mKUYNZZaR0t4MFFSs+iM"  # changeme123
+    email: john.doe@example.com
+    groups:
+      - users
+
+  # Family member with media access only
+  family1:
+    displayname: "Jane Doe"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnfgDsc2WD8F2q$o/vzA4myCqZZ36bUGsDY//8mKUYNZZaR0t4MFFSs+iM"  # changeme123
+    email: jane.doe@example.com
+    groups:
+      - family
+      - users
+
+  # Guest user with very limited access
+  guest:
+    displayname: "Guest User"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnfgDsc2WD8F2q$o/vzA4myCqZZ36bUGsDY//8mKUYNZZaR0t4MFFSs+iM"  # changeme123
+    email: guest@example.com
+    groups:
+      - guests
+
+# Group definitions and their purposes
+# admins: Full access to all services and admin interfaces
+# users: Access to media services and basic functionality
+# family: Access to media consumption only
+# guests: Very limited access, media viewing only
+
+# Access control rules are defined in the main configuration.yml file
+# Example access patterns:
+# - admins: Can access all services including admin panels
+# - users: Can access media services, download clients, and request systems
+# - family: Can access media servers (Plex/Jellyfin) and request systems
+# - guests: Can only access media servers for viewing
+
+# Security recommendations:
+# 1. Change all default passwords immediately
+# 2. Use unique, strong passwords for each user
+# 3. Enable two-factor authentication for admin users
+# 4. Regularly review and update user access
+# 5. Remove unused accounts
+# 6. Monitor authentication logs for suspicious activity
+
+# Password policy recommendations:
+# - Minimum 12 characters
+# - Mix of uppercase, lowercase, numbers, and symbols
+# - No dictionary words or personal information
+# - Unique passwords for each service
+
+# Two-factor authentication setup:
+# Users can set up TOTP (Time-based One-Time Password) using apps like:
+# - Google Authenticator
+# - Authy
+# - Microsoft Authenticator
+# - 1Password
+# - Bitwarden
+
+# Example of user with 2FA enabled (configured through Authelia web interface):
+# The user will need to scan a QR code or enter a secret key into their authenticator app
+
+# LDAP Integration (alternative to file-based users):
+# For larger deployments, consider integrating with:
+# - Active Directory
+# - FreeIPA
+# - OpenLDAP
+# - Azure AD
+# 
+# Example LDAP configuration would replace this file-based approach

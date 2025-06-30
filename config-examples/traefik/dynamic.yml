@@ -1,0 +1,341 @@
+# Traefik Dynamic Configuration for Secure Media Server
+# This file contains dynamic configuration that can be updated without restarting Traefik
+
+# HTTP middlewares
+http:
+  middlewares:
+    # Security headers middleware
+    secureHeaders:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - OPTIONS
+          - PUT
+          - POST
+          - DELETE
+        accessControlMaxAge: 100
+        hostsProxyHeaders:
+          - "X-Forwarded-Host"
+        referrerPolicy: "same-origin"
+        sslRedirect: true
+        sslTemporaryRedirect: true
+        sslHost: ""
+        sslProxyHeaders:
+          X-Forwarded-Proto: https
+        sslForceHost: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        customFrameOptionsValue: "SAMEORIGIN"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        customResponseHeaders:
+          X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex"
+          server: ""
+          X-Powered-By: ""
+
+    # Default whitelist (allow all - customize as needed)
+    default-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "0.0.0.0/0"
+          - "::/0"
+
+    # Local network whitelist
+    local-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "192.168.0.0/16"
+          - "172.16.0.0/12"
+          - "10.0.0.0/8"
+          - "127.0.0.1/32"
+          - "::1/128"
+
+    # Admin whitelist (more restrictive)
+    admin-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "192.168.1.0/24"  # Your home network
+          - "10.0.0.0/24"     # VPN network
+          # Add your trusted IP addresses here
+
+    # Rate limiting middleware
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1m
+
+    # Rate limiting for auth endpoints
+    auth-rate-limit:
+      rateLimit:
+        average: 10
+        burst: 5
+        period: 1m
+
+    # Authelia forward auth middleware
+    authelia:
+      forwardAuth:
+        address: "http://authelia:9091/api/verify?rd=https://auth.yourdomain.com"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "Remote-User"
+          - "Remote-Groups"
+          - "Remote-Name"
+          - "Remote-Email"
+
+    # Basic auth middleware (fallback)
+    basic-auth:
+      basicAuth:
+        users:
+          - "admin:$2y$10$2b2cu2Fw1ZfqRkjQ1Kx9a.4J4J4J4J4J4J4J4J4J4J4J4J4J4J"  # admin:password
+
+    # Redirect to HTTPS
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    # Add trailing slash
+    add-trailing-slash:
+      redirectRegex:
+        regex: "^(https?://[^/]+/[a-z0-9_]+)$"
+        replacement: "${1}/"
+        permanent: true
+
+    # Remove trailing slash
+    remove-trailing-slash:
+      redirectRegex:
+        regex: "^(https?://[^/]+/.+)/$"
+        replacement: "${1}"
+        permanent: true
+
+    # CORS headers for API endpoints
+    cors-headers:
+      headers:
+        accessControlAllowOriginList:
+          - "https://yourdomain.com"
+          - "https://*.yourdomain.com"
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Requested-With"
+        accessControlExposeHeaders:
+          - "Content-Length"
+          - "Content-Range"
+        accessControlMaxAge: 86400
+        addVaryHeader: true
+
+    # Compression middleware
+    compression:
+      compress: {}
+
+    # Circuit breaker
+    circuit-breaker:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.3"
+        checkPeriod: 3s
+        fallbackDuration: 10s
+        recoveryDuration: 3s
+
+    # Retry middleware
+    retry:
+      retry:
+        attempts: 3
+        initialInterval: 100ms
+
+  # Services (backend definitions)
+  services:
+    # Jellyfin service
+    jellyfin:
+      loadBalancer:
+        servers:
+          - url: "http://jellyfin:8096"
+        healthCheck:
+          path: "/health"
+          interval: 30s
+          timeout: 5s
+
+    # Sonarr service
+    sonarr:
+      loadBalancer:
+        servers:
+          - url: "http://sonarr:8989"
+        healthCheck:
+          path: "/ping"
+          interval: 30s
+          timeout: 5s
+
+    # Radarr service
+    radarr:
+      loadBalancer:
+        servers:
+          - url: "http://radarr:7878"
+        healthCheck:
+          path: "/ping"
+          interval: 30s
+          timeout: 5s
+
+    # Prowlarr service
+    prowlarr:
+      loadBalancer:
+        servers:
+          - url: "http://prowlarr:9696"
+        healthCheck:
+          path: "/ping"
+          interval: 30s
+          timeout: 5s
+
+    # qBittorrent service
+    qbittorrent:
+      loadBalancer:
+        servers:
+          - url: "http://qbittorrent:8080"
+
+    # Nginx Proxy Manager service
+    nginx-proxy-manager:
+      loadBalancer:
+        servers:
+          - url: "http://nginx-proxy-manager:81"
+
+  # Routers (URL routing rules)
+  routers:
+    # Jellyfin router
+    jellyfin:
+      rule: "Host(`jellyfin.yourdomain.com`)"
+      service: jellyfin
+      tls:
+        certResolver: cloudflare
+      middlewares:
+        - secureHeaders
+        - compression
+
+    # Sonarr router (admin access only)
+    sonarr:
+      rule: "Host(`sonarr.yourdomain.com`)"
+      service: sonarr
+      tls:
+        certResolver: cloudflare
+      middlewares:
+        - secureHeaders
+        - authelia
+        - admin-whitelist
+        - compression
+
+    # Radarr router (admin access only)
+    radarr:
+      rule: "Host(`radarr.yourdomain.com`)"
+      service: radarr
+      tls:
+        certResolver: cloudflare
+      middlewares:
+        - secureHeaders
+        - authelia
+        - admin-whitelist
+        - compression
+
+    # Prowlarr router (admin access only)
+    prowlarr:
+      rule: "Host(`prowlarr.yourdomain.com`)"
+      service: prowlarr
+      tls:
+        certResolver: cloudflare
+      middlewares:
+        - secureHeaders
+        - authelia
+        - admin-whitelist
+        - compression
+
+    # qBittorrent router (admin access only)
+    qbittorrent:
+      rule: "Host(`qbittorrent.yourdomain.com`)"
+      service: qbittorrent
+      tls:
+        certResolver: cloudflare
+      middlewares:
+        - secureHeaders
+        - authelia
+        - admin-whitelist
+        - compression
+
+    # Traefik dashboard router (admin access only)
+    traefik-dashboard:
+      rule: "Host(`traefik.yourdomain.com`)"
+      service: api@internal
+      tls:
+        certResolver: cloudflare
+      middlewares:
+        - secureHeaders
+        - authelia
+        - admin-whitelist
+
+# TLS configuration
+tls:
+  certificates:
+    # Manual certificate configuration (if not using ACME)
+    # - certFile: /certs/yourdomain.com.crt
+    #   keyFile: /certs/yourdomain.com.key
+    #   stores:
+    #     - default
+
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/default.crt
+        keyFile: /certs/default.key
+
+# TCP services and routers (for non-HTTP services)
+tcp:
+  services:
+    # Example: Direct access to a service
+    # jellyfin-direct:
+    #   loadBalancer:
+    #     servers:
+    #       - address: "jellyfin:8096"
+
+  routers:
+    # Example: TCP router for direct access
+    # jellyfin-tcp:
+    #   rule: "HostSNI(`jellyfin-direct.yourdomain.com`)"
+    #   service: jellyfin-direct
+    #   tls:
+    #     passthrough: true
+
+# UDP services and routers (for UDP services)
+udp:
+  services:
+    # Example: UDP service
+    # dns:
+    #   loadBalancer:
+    #     servers:
+    #       - address: "pihole:53"
+
+  routers:
+    # Example: UDP router
+    # dns-router:
+    #   service: dns
+    #   entryPoints:
+    #     - "dns"
+
+# File provider configuration
+# This section is automatically reloaded when the file changes
+# No restart of Traefik is required for changes in this file
+
+# Security notes:
+# 1. Replace "yourdomain.com" with your actual domain
+# 2. Customize IP whitelists for your network
+# 3. Review and adjust middleware configurations
+# 4. Use strong authentication methods
+# 5. Monitor access logs regularly
+# 6. Keep certificates up to date
+# 7. Test configurations in a staging environment first

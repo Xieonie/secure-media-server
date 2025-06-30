@@ -1,0 +1,174 @@
+# Traefik Static Configuration for Secure Media Server
+# This is the main configuration file for Traefik reverse proxy
+
+# Global configuration
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+# API and dashboard configuration
+api:
+  dashboard: true
+  debug: false
+  insecure: false  # Set to true only for testing
+
+# Entry points (ports)
+entryPoints:
+  web:
+    address: ":80"
+    # Redirect HTTP to HTTPS
+    http:
+      redirections:
+        entrypoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        options: default
+        certResolver: cloudflare
+      middlewares:
+        - secureHeaders@file
+        - default-whitelist@file
+
+# Certificate resolvers
+certificatesResolvers:
+  cloudflare:
+    acme:
+      email: your-email@example.com
+      storage: /acme/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
+        delayBeforeCheck: 60
+
+  letsencrypt:
+    acme:
+      email: your-email@example.com
+      storage: /acme/acme-letsencrypt.json
+      httpChallenge:
+        entryPoint: web
+
+# Providers
+providers:
+  # Docker provider for automatic service discovery
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: frontend
+    watch: true
+
+  # File provider for additional configuration
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true
+
+# Logging
+log:
+  level: INFO
+  filePath: "/var/log/traefik/traefik.log"
+  format: json
+
+# Access logs
+accessLog:
+  filePath: "/var/log/traefik/access.log"
+  format: json
+  bufferingSize: 100
+  filters:
+    statusCodes:
+      - "400-499"
+      - "500-599"
+    retryAttempts: true
+    minDuration: "10ms"
+
+# Metrics (optional - for monitoring)
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    addRoutersLabels: true
+    entryPoint: metrics
+
+# Pilot (Traefik Cloud) - disabled for privacy
+pilot:
+  dashboard: false
+
+# Tracing (optional - for debugging)
+# tracing:
+#   jaeger:
+#     samplingServerURL: http://jaeger:14268/api/sampling
+#     localAgentHostPort: jaeger:6831
+
+# Cluster configuration (for multiple Traefik instances)
+# cluster:
+#   store: consul
+#   prefix: traefik
+
+# TLS configuration
+tls:
+  options:
+    default:
+      sslStrategies:
+        - "tls.SniStrict"
+      minVersion: "VersionTLS12"
+      cipherSuites:
+        - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+        - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+        - "TLS_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_RSA_WITH_AES_128_GCM_SHA256"
+      curvePreferences:
+        - CurveP521
+        - CurveP384
+      sniStrict: true
+
+    modern:
+      minVersion: "VersionTLS13"
+      sniStrict: true
+
+# Experimental features
+experimental:
+  plugins:
+    # Example plugin configuration
+    # real-ip:
+    #   moduleName: github.com/soulbalz/traefik-real-ip
+    #   version: v1.0.3
+
+# ServersTransport configuration
+serversTransport:
+  insecureSkipVerify: false
+  maxIdleConnsPerHost: 10
+  forwardingTimeouts:
+    dialTimeout: 30s
+    responseHeaderTimeout: 0s
+    idleConnTimeout: 90s
+
+# Health check
+ping:
+  entryPoint: "web"
+
+# Rate limiting (global)
+# This can be overridden per service in dynamic configuration
+# rateLimit:
+#   average: 100
+#   burst: 200
+
+# Example environment variables that should be set:
+# CLOUDFLARE_EMAIL=your-email@example.com
+# CLOUDFLARE_API_KEY=your-cloudflare-api-key
+# TRAEFIK_DOMAIN=your-domain.com
+
+# Security considerations:
+# 1. Always use HTTPS in production
+# 2. Keep Traefik updated to the latest version
+# 3. Use strong TLS configurations
+# 4. Implement proper access controls
+# 5. Monitor logs for suspicious activity
+# 6. Use fail2ban or similar tools for brute force protection
+# 7. Regularly rotate certificates
+# 8. Implement proper backup strategies for configuration
