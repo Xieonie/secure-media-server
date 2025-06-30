@@ -1,0 +1,204 @@
+# Authelia Configuration for Secure Media Server
+# This configuration provides authentication and authorization for media server services
+
+# Server Configuration
+server:
+  host: 0.0.0.0
+  port: 9091
+  path: ""
+  read_buffer_size: 4096
+  write_buffer_size: 4096
+  enable_pprof: false
+  enable_expvars: false
+
+# Logging Configuration
+log:
+  level: info
+  format: text
+  file_path: /config/authelia.log
+  keep_stdout: true
+
+# Theme Configuration
+theme: dark
+
+# JWT Secret (generate with: openssl rand -hex 32)
+jwt_secret: your_jwt_secret_here
+
+# Default Redirection URL
+default_redirection_url: https://media.example.com
+
+# TOTP Configuration
+totp:
+  issuer: "Media Server"
+  algorithm: sha1
+  digits: 6
+  period: 30
+  skew: 1
+
+# WebAuthn Configuration
+webauthn:
+  timeout: 60s
+  display_name: "Media Server"
+  attestation_conveyance_preference: indirect
+  user_verification: preferred
+  
+# Duo Push API Configuration (optional)
+# duo_api:
+#   hostname: api-123456789.duosecurity.com
+#   integration_key: ABCDEF
+#   secret_key: your_secret_key
+
+# Authentication Backend
+authentication_backend:
+  password_reset:
+    disable: false
+  refresh_interval: 5m
+  
+  # File-based authentication
+  file:
+    path: /config/users_database.yml
+    password:
+      algorithm: argon2id
+      iterations: 1
+      salt_length: 16
+      parallelism: 8
+      memory: 64
+
+# Access Control Configuration
+access_control:
+  default_policy: deny
+  
+  rules:
+    # Admin access to all services
+    - domain: "*.media.example.com"
+      policy: two_factor
+      subject: "group:admins"
+      
+    # Media access for authenticated users
+    - domain: "jellyfin.media.example.com"
+      policy: one_factor
+      subject: "group:users"
+      
+    # Download management for power users
+    - domain: "sonarr.media.example.com"
+      policy: two_factor
+      subject: "group:power_users"
+      
+    - domain: "radarr.media.example.com"
+      policy: two_factor
+      subject: "group:power_users"
+      
+    - domain: "prowlarr.media.example.com"
+      policy: two_factor
+      subject: "group:power_users"
+      
+    - domain: "qbittorrent.media.example.com"
+      policy: two_factor
+      subject: "group:power_users"
+      
+    # Monitoring access for admins only
+    - domain: "grafana.media.example.com"
+      policy: two_factor
+      subject: "group:admins"
+      
+    # Proxy manager for admins only
+    - domain: "proxy.media.example.com"
+      policy: two_factor
+      subject: "group:admins"
+
+# Session Configuration
+session:
+  name: authelia_session
+  domain: media.example.com
+  same_site: lax
+  secret: your_session_secret_here
+  expiration: 1h
+  inactivity: 5m
+  remember_me_duration: 1M
+  
+  # Redis session storage
+  redis:
+    host: authelia-redis
+    port: 6379
+    password: your_redis_password
+    database_index: 0
+    maximum_active_connections: 8
+    minimum_idle_connections: 0
+
+# Regulation Configuration (brute force protection)
+regulation:
+  max_retries: 3
+  find_time: 2m
+  ban_time: 5m
+
+# Storage Configuration
+storage:
+  encryption_key: your_storage_encryption_key_here
+  
+  # Local storage
+  local:
+    path: /config/db.sqlite3
+    
+  # PostgreSQL storage (alternative)
+  # postgres:
+  #   host: postgres
+  #   port: 5432
+  #   database: authelia
+  #   schema: public
+  #   username: authelia
+  #   password: your_postgres_password
+  #   timeout: 5s
+
+# Notifier Configuration
+notifier:
+  disable_startup_check: false
+  
+  # File-based notifications (for development)
+  filesystem:
+    filename: /config/notification.txt
+    
+  # SMTP notifications (for production)
+  # smtp:
+  #   host: smtp.gmail.com
+  #   port: 587
+  #   timeout: 5s
+  #   username: your_email@gmail.com
+  #   password: your_app_password
+  #   sender: "Authelia <authelia@media.example.com>"
+  #   identifier: media.example.com
+  #   subject: "[Authelia] {title}"
+  #   startup_check_address: test@authelia.com
+  #   disable_require_tls: false
+  #   disable_html_emails: false
+  #   tls:
+  #     server_name: smtp.gmail.com
+  #     skip_verify: false
+  #     minimum_version: TLS1.2
+
+# Identity Providers Configuration
+# identity_providers:
+#   oidc:
+#     hmac_secret: your_oidc_hmac_secret
+#     issuer_private_key: |
+#       -----BEGIN RSA PRIVATE KEY-----
+#       ...
+#       -----END RSA PRIVATE KEY-----
+#     access_token_lifespan: 1h
+#     authorize_code_lifespan: 1m
+#     id_token_lifespan: 1h
+#     refresh_token_lifespan: 90m
+#     enable_client_debug_messages: false
+#     clients:
+#       - id: jellyfin
+#         description: Jellyfin Media Server
+#         secret: jellyfin_client_secret
+#         public: false
+#         authorization_policy: two_factor
+#         redirect_uris:
+#           - https://jellyfin.media.example.com/sso/OID/redirect/authelia
+#         scopes:
+#           - openid
+#           - profile
+#           - groups
+#           - email
+#         userinfo_signing_algorithm: none
