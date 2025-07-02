@@ -100,7 +100,7 @@ docker-compose --version
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/secure-media-server.git
+git clone https://github.com/Xieonie/secure-media-server.git
 cd secure-media-server
 
 # Make scripts executable
